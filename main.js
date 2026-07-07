@@ -90,6 +90,24 @@ const App = {
   capitalTarget: null,
   editPayTarget: null,
   currentFilter: 'all',
+  viewAll: false, // false = cada usuario ve solo lo que él/ella creó
+
+  // Un cliente (y todo lo suyo: sus préstamos y pagos) le "pertenece" a
+  // quien lo creó. Si viewAll está apagado, todo se filtra a partir de ahí.
+  scopedClients() {
+    if (this.viewAll || !DB.currentUser) return DB.cache.clients;
+    return DB.cache.clients.filter(c => c.createdBy === DB.currentUser.name);
+  },
+  scopedLoans() {
+    if (this.viewAll || !DB.currentUser) return DB.cache.loans;
+    const ids = new Set(this.scopedClients().map(c => c.id));
+    return DB.cache.loans.filter(l => ids.has(l.clientId));
+  },
+  scopedPayments() {
+    if (this.viewAll || !DB.currentUser) return DB.cache.payments;
+    const loanIds = new Set(this.scopedLoans().map(l => l.id));
+    return DB.cache.payments.filter(p => loanIds.has(p.loanId));
+  },
 
   async init() {
     UI.initTheme();
@@ -106,13 +124,13 @@ const App = {
       $('loginErr').style.display = 'none';
       const res = await DB.auth.login(u, p);
       if (res.ok) await this._enterApp();
-      else { $('loginErr').style.display = 'block'; $('lp').value = ''; }
+      else { $('loginErr').textContent = '✕ ' + (res.error || 'Credenciales incorrectas'); $('loginErr').style.display = 'block'; $('lp').value = ''; }
     });
 
     ['fAmount', 'fRate', 'fFreq'].forEach(id => $(id).addEventListener('input', () => this.updateProjection()));
     $('fFreq').addEventListener('change', () => this.updateProjection());
     $('searchInp').addEventListener('input', () => this.render());
-    $('mineToggle').addEventListener('change', () => this.render());
+    $('viewAllToggle').addEventListener('change', () => { this.viewAll = $('viewAllToggle').checked; this.render(); });
     UI.initFilterBar();
 
     ['modalNew', 'modalDetail', 'modalPay', 'modalCapital', 'modalCalc', 'modalMora', 'modalClient', 'modalEditPay'].forEach(id =>
@@ -155,20 +173,19 @@ const App = {
 
   /* ── Render principal ── */
   render() {
-    const loans = DB.cache.loans;
+    const loans = this.scopedLoans();
+    const payments = this.scopedPayments();
     const q = ($('searchInp').value || '').toLowerCase();
-    const mineOnly = $('mineToggle').checked;
 
     let items = loans.map(l => ({ loan: l, client: DB.getClient(l.clientId) })).filter(x => x.client);
     if (q) items = items.filter(({ client }) => client.name.toLowerCase().includes(q) || (client.phone || '').toLowerCase().includes(q));
     if (this.currentFilter !== 'all') {
       items = items.filter(({ loan }) => (loan.isClosed ? 'done' : loanStatus(loan, DB.cache.payments)) === this.currentFilter);
     }
-    if (mineOnly && DB.currentUser) items = items.filter(({ loan }) => loan.createdBy === DB.currentUser.name);
 
-    // KPIs sobre TODOS los préstamos (no solo los filtrados en pantalla)
+    // KPIs sobre TODOS los préstamos dentro del alcance actual (no solo los filtrados en pantalla)
     const active = loans.filter(l => !l.isClosed);
-    $('kClients').textContent = DB.cache.clients.length;
+    $('kClients').textContent = this.scopedClients().length;
     $('kActive').textContent = active.length;
     $('kCapital').textContent = money(active.reduce((s, l) => s + loanOutstanding(l, DB.cache.payments), 0));
     $('kInterest').textContent = money(active.reduce((s, l) => {
@@ -176,7 +193,7 @@ const App = {
       return s + (l.freq === 'quincenal' ? c * 2 : c);
     }, 0));
 
-    renderCharts(loans, DB.cache.payments);
+    renderCharts(loans, payments);
     this._renderAlerts(loans);
 
     const tbody = $('clientTbody');
@@ -668,7 +685,7 @@ const UI = {
   populateClientSelect() {
     const sel = $('fClientSelect');
     sel.innerHTML = '<option value="">— Selecciona —</option>' +
-      DB.cache.clients.map(c => `<option value="${c.id}">${esc(c.name)}${c.phone ? ' — ' + esc(c.phone) : ''}</option>`).join('');
+      App.scopedClients().map(c => `<option value="${c.id}">${esc(c.name)}${c.phone ? ' — ' + esc(c.phone) : ''}</option>`).join('');
   },
 
   selectClientMode(mode) {
@@ -707,7 +724,7 @@ const UI = {
   },
 
   openMora() {
-    const overdue = DB.cache.loans
+    const overdue = App.scopedLoans()
       .filter(l => !l.isClosed && loanStatus(l, DB.cache.payments) === 'overdue')
       .map(l => ({ loan: l, client: DB.getClient(l.clientId), due: nextDueDate(l, DB.cache.payments) }))
       .filter(x => x.client)
