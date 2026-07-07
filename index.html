@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Libreta · Préstamos</title>
+<meta name="theme-color" content="#1B2A3C"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#F6F5F1;--surface:#FFFFFF;--surface2:#EFEDE7;
+  --border:#DDD9CE;--border2:#C9C4B5;
+  --ink:#1B2A3C;--ink-muted:#667085;--ink-faint:#98A2B3;
+  --accent:#1B2A3C;--accent-fg:#FFFFFF;
+  --money:#1F6F50;--money-bg:#E3EFE7;--money-border:rgba(31,111,80,.28);
+  --gold:#8A5A0B;--gold-bg:#F7EEDA;--gold-border:rgba(138,90,11,.28);
+  --rust:#9C3F27;--rust-bg:#F3E2DC;--rust-border:rgba(156,63,39,.28);
+  --gray:#667085;--gray-bg:#EAEAE6;--gray-border:rgba(102,112,133,.25);
+  --btn-money:#1F6F50;--btn-gold:#8F630D;--btn-rust:#9C3F27;
+  --rule:rgba(27,42,60,.035);
+  --shadow:0 1px 2px rgba(27,42,60,.06),0 8px 24px rgba(27,42,60,.06);
+}
+[data-theme="dark"]{
+  --bg:#14181D;--surface:#1C2127;--surface2:#242A32;
+  --border:#323A45;--border2:#414B58;
+  --ink:#EDEEF0;--ink-muted:#9AA3AF;--ink-faint:#6B7280;
+  --accent:#EDEEF0;--accent-fg:#14181D;
+  --money:#4FBB8E;--money-bg:rgba(79,187,142,.14);--money-border:rgba(79,187,142,.3);
+  --gold:#DBAD57;--gold-bg:rgba(219,173,87,.14);--gold-border:rgba(219,173,87,.3);
+  --rust:#E27E62;--rust-bg:rgba(226,126,98,.14);--rust-border:rgba(226,126,98,.3);
+  --gray:#9AA3AF;--gray-bg:rgba(154,163,175,.14);--gray-border:rgba(154,163,175,.25);
+  --btn-money:#1F6F50;--btn-gold:#8F630D;--btn-rust:#9C3F27;
+  --rule:rgba(255,255,255,.025);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:'IBM Plex Sans',-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;transition:background .2s,color .2s}
+body{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--rule) 28px);}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.inp{width:100%;padding:10px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--ink);font-size:.88rem;outline:none;font-family:inherit;transition:border-color .15s}
+.inp:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(27,42,60,.08)}
+[data-theme="dark"] .inp:focus{box-shadow:0 0 0 3px rgba(237,238,240,.08)}
+.inp::placeholder{color:var(--ink-faint)}
+select.inp{cursor:pointer}
+.lbl{display:block;font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:8px;font-weight:600;font-size:.84rem;border:none;cursor:pointer;transition:filter .15s,opacity .15s;font-family:inherit}
+.btn:active{filter:brightness(.94)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn-primary{background:var(--accent);color:var(--accent-fg)}
+.btn-primary:hover{filter:brightness(1.12)}
+.btn-money{background:var(--btn-money);color:#fff}
+.btn-money:hover{filter:brightness(1.1)}
+.btn-rust{background:var(--btn-rust);color:#fff}
+.btn-rust:hover{filter:brightness(1.1)}
+.btn-gold{background:var(--btn-gold);color:#fff}
+.btn-gold:hover{filter:brightness(1.1)}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--ink-muted)}
+.btn-ghost:hover{background:var(--surface2);color:var(--ink)}
+.btn-sm{padding:6px 11px;font-size:.74rem}
+.icon-btn{width:34px;height:34px;padding:0;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border2);color:var(--ink-muted);cursor:pointer}
+.icon-btn:hover{background:var(--surface2);color:var(--ink)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:.68rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border:1px solid transparent;white-space:nowrap}
+.badge-money{background:var(--money-bg);color:var(--money);border-color:var(--money-border)}
+.badge-rust{background:var(--rust-bg);color:var(--rust);border-color:var(--rust-border)}
+.badge-gold{background:var(--gold-bg);color:var(--gold);border-color:var(--gold-border)}
+.badge-gray{background:var(--gray-bg);color:var(--gray);border-color:var(--gray-border)}
+.tab-money{box-shadow:inset 3px 0 0 0 var(--money)}
+.tab-rust{box-shadow:inset 3px 0 0 0 var(--rust)}
+.tab-gold{box-shadow:inset 3px 0 0 0 var(--gold)}
+.tab-gray{box-shadow:inset 3px 0 0 0 var(--gray)}
+.tbl{width:100%;border-collapse:separate;border-spacing:0}
+.tbl th{padding:10px 12px;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-muted);background:var(--surface2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.tbl td{padding:12px;border-bottom:1px solid var(--border);font-size:.83rem;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:var(--surface2)}
+.prog{height:5px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;background:var(--money)}
+.modal-bg{position:fixed;inset:0;background:rgba(20,24,29,.55);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;padding:26px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fadeUp .25s ease forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.fi{animation:fadeIn .18s ease}
+.toast{position:fixed;bottom:20px;right:20px;left:20px;z-index:999;padding:12px 16px;border-radius:10px;font-size:.83rem;font-weight:600;box-shadow:var(--shadow);border-left:3px solid;animation:fadeUp .25s ease;background:var(--surface);color:var(--ink);max-width:360px;margin-left:auto}
+.radio-card{cursor:pointer;padding:10px 13px;border-radius:8px;border:1.5px solid var(--border);transition:all .15s;display:flex;align-items:flex-start;gap:9px}
+.radio-card.sel{border-color:var(--ink);background:var(--surface2)}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px}
+.stat-val{font-family:'IBM Plex Mono',monospace;font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat-lbl{font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:10px;flex-wrap:wrap}
+.pill{padding:6px 13px;border-radius:99px;font-size:.76rem;font-weight:600;border:1px solid var(--border2);color:var(--ink-muted);background:var(--surface);cursor:pointer;white-space:nowrap}
+.pill.active{background:var(--ink);color:var(--accent-fg);border-color:var(--ink)}
+[data-theme="dark"] .pill.active{background:var(--accent);color:var(--accent-fg)}
+.dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);min-width:210px;z-index:60;overflow:hidden;padding:5px}
+.dropdown a,.dropdown button{display:flex;width:100%;align-items:center;gap:8px;padding:9px 11px;font-size:.83rem;color:var(--ink);background:none;border:none;text-align:left;cursor:pointer;border-radius:6px;font-family:inherit}
+.dropdown a:hover,.dropdown button:hover{background:var(--surface2)}
+.local-banner{background:var(--gold-bg);border:1px solid var(--gold-border);color:var(--gold);border-radius:10px;padding:10px 14px;font-size:.8rem;display:flex;gap:8px;align-items:flex-start}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:16px">
+  <div class="card fu" style="width:100%;max-width:380px;padding:34px 30px">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:26px">
+      <div style="width:38px;height:38px;border-radius:9px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--accent-fg)">📒</div>
+      <div>
+        <div style="font-weight:700;font-size:1.02rem">Libreta</div>
+        <div style="font-size:.7rem;color:var(--ink-muted);letter-spacing:.05em;text-transform:uppercase">Control de Préstamos</div>
+      </div>
+    </div>
+    <form id="loginForm" style="display:flex;flex-direction:column;gap:13px">
+      <div><label class="lbl">Usuario</label><input id="lu" class="inp" placeholder="Usuario" autocomplete="off"/></div>
+      <div><label class="lbl">Contraseña</label><input id="lp" type="password" class="inp" placeholder="••••••••" autocomplete="current-password"/></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;font-size:.92rem;margin-top:4px">Entrar →</button>
+    </form>
+    <p id="loginErr" style="display:none;text-align:center;color:var(--rust);font-size:.8rem;margin-top:12px">✕ Credenciales incorrectas</p>
+    <div id="loginLocalNote" class="local-banner" style="display:none;margin-top:18px">
+      <span>⚠</span>
+      <span>Modo local — sin Supabase conectado. Los datos solo viven en este navegador y el usuario/contraseña no son seguros todavía. Sigue <b>INSTRUCCIONES.md</b> para conectar tu base de datos.</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;position:relative">
+  <header>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:30px;height:30px;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--accent-fg)">📒</div>
+      <span style="font-weight:700;font-size:.92rem">Libreta</span>
+      <span style="color:var(--ink-faint);font-size:.8rem">·</span>
+      <span id="userLabel" style="color:var(--ink-muted);font-size:.8rem"></span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="icon-btn" id="themeToggleBtn" title="Cambiar tema" onclick="UI.toggleTheme()">🌙</button>
+      <button class="btn btn-ghost btn-sm" onclick="UI.openCalc()">🧮 Calcular</button>
+      <div style="position:relative">
+        <button class="btn btn-ghost btn-sm" id="btnMoreToggle" onclick="UI.toggleMoreMenu()">⋯ Más</button>
+        <div id="moreMenu" class="dropdown" style="display:none">
+          <button onclick="UI.toggleMoreMenu();Reports.portfolioPDF()">📄 Reporte PDF general</button>
+          <button onclick="UI.toggleMoreMenu();Reports.portfolioExcel()">📊 Reporte Excel general</button>
+          <button onclick="UI.toggleMoreMenu();UI.openMora()">⚠️ Morosidad</button>
+          <button onclick="UI.toggleMoreMenu();App.exportBackup()">⬇️ Exportar respaldo</button>
+          <button onclick="UI.toggleMoreMenu();$('backupFileInput').click()">⬆️ Restaurar respaldo</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="App.logout()">Salir</button>
+      <input id="backupFileInput" type="file" accept="application/json" style="display:none" onchange="App.importBackup(event)"/>
+    </div>
+  </header>
+
+  <div style="padding:20px 20px 0;max-width:1360px;margin:0 auto">
+    <div id="localModeBanner" class="local-banner" style="display:none;margin-bottom:16px">
+      <span>⚠</span>
+      <span>Estás en modo local: los datos solo están en este navegador (sin respaldo automático). Revisa <b>INSTRUCCIONES.md</b> para conectar Supabase y usar la app desde cualquier dispositivo.</span>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" style="margin-bottom:18px">
+      <div class="stat tab-gray"><div class="stat-lbl">Clientes</div><div class="stat-val" id="kClients">0</div></div>
+      <div class="stat tab-money"><div class="stat-lbl">Préstamos Activos</div><div class="stat-val" id="kActive">0</div></div>
+      <div class="stat tab-gold"><div class="stat-lbl">Capital en Calle</div><div class="stat-val" id="kCapital" style="font-size:1.05rem">$0</div></div>
+      <div class="stat tab-rust"><div class="stat-lbl">Interés Mensual Esperado</div><div class="stat-val" id="kInterest" style="font-size:1.05rem">$0</div></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3" style="margin-bottom:18px">
+      <div class="card md:col-span-2" style="padding:16px">
+        <div style="font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:2px">Interés cobrado — últimos 6 meses</div>
+        <div id="chartInteresVal" class="mono" style="font-size:1.2rem;font-weight:700;margin-bottom:8px">$0.00</div>
+        <div style="position:relative;height:140px"><canvas id="chartInteres" role="img" aria-label="Interés cobrado por mes">Sin datos</canvas></div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">Estado de préstamos</div>
+        <div id="chartEstadoLegend" style="font-size:.7rem;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div style="position:relative;height:110px"><canvas id="chartEstado" role="img" aria-label="Distribución por estado">Sin datos</canvas></div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div id="alertBar" style="display:none;margin-bottom:16px"></div>
+
+    <!-- CTA -->
+    <div style="display:flex;justify-content:center;margin-bottom:18px">
+      <button class="btn btn-primary" id="btnNewLoan" onclick="UI.openNewLoan()" style="padding:13px 44px;font-size:.95rem">+ Nuevo Préstamo</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card" style="padding:14px 16px;margin-bottom:0;border-bottom:none;border-radius:10px 10px 0 0">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex flex-wrap gap-2" id="filterBar">
+          <button class="pill active" data-filter="all">Todos</button>
+          <button class="pill" data-filter="ok">Al día</button>
+          <button class="pill" data-filter="warning">Próximo</button>
+          <button class="pill" data-filter="overdue">Vencido</button>
+          <button class="pill" data-filter="done">Saldado</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--ink-muted);cursor:pointer">
+            <input type="checkbox" id="mineToggle"/> Solo mis registros
+          </label>
+          <input id="searchInp" class="inp" style="width:200px;padding:8px 12px;font-size:.82rem" placeholder="🔍 Buscar cliente..."/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client table -->
+    <div class="card" style="overflow:hidden;margin-bottom:36px;border-radius:0 0 10px 10px;border-top:none">
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr>
+            <th>Estado</th><th>Cliente</th><th>Teléfono</th>
+            <th>Monto / Tasa</th><th>Próx. Pago</th>
+            <th>Pagado</th><th>Progreso</th><th style="text-align:right">Acciones</th>
+          </tr></thead>
+          <tbody id="clientTbody">
+            <tr><td colspan="8" style="text-align:center;padding:44px;color:var(--ink-muted)">Sin préstamos — presiona "+ Nuevo Préstamo"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO PRÉSTAMO -->
+<div id="modalNew" class="modal-bg" style="display:none">
+  <div class="modal fi">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-weight:700;font-size:1.05rem" id="modalNewTitle">Nuevo Préstamo</div>
+        <div style="font-size:.76rem;color:var(--ink-muted);margin-top:2px">Completa los datos para crear el registro</div>
+      </div>
+      <button onclick="UI.closeModal('modalNew')" class="icon-btn">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div>
+        <label class="lbl">Cliente</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="radio-card sel" id="rcClientNew" onclick="UI.selectClientMode('new')">
+            <div><div style="font-weight:600;font-size:.8rem">Cliente nuevo</div></div>
+          </label>
+          <label class="radio-card" id="rcClientExisting" onclick="UI.selectClientMode('existing')">
+            <div><div style="font-weight:600;font-size:.8rem">Cliente existente</div></div>
+          </label>
+        </div>
+      </div>
+      <div id="clientNewFields" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div><label class="lbl">Nombre completo</label><input id="fName" class="inp" placeholder="Elsa Martínez"/></div>
+        <div><label class="lbl">Teléfono</label><input id="fPhone" class="inp" placeholder="+507 6000-0000"/></div>
+      </div>
+      <div id="clientExistingFields" style="display:none">
+        <label class="lbl">Selecciona el cliente</label>
+        <select id="fClientSelect" class="inp"><option value="">— Selecciona —</option></select>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="lbl">Monto ($)</label>
+          <div style="position:relative">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-muted);font-weight:700">$</span>
+            <input id="fAmount" type="number" class="inp mono" style="padding-left:24px" placeholder="500"/>
+          </div>
+        </div>
+        <div><label class="lbl">Interés %</label><input id="fRate" type="number" class="inp mono" placeholder="15"/></div>
+        <div>
+          <label class="lbl">Frecuencia</label>
+          <select id="fFreq" class="inp">
+            <option value="quincenal">Quincenal</option>
+            <option value="mensual">Mensual</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">Modo de fechas de cobro</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="radio-card sel" id="rcInterval" onclick="UI.selectDateMode('interval')">
+            <input type="radio" name="fDateMode" value="interval" checked style="display:none"/>
+            <div>
+              <div style="font-weight:600;font-size:.8rem">Intervalo fijo</div>
+              <div style="font-size:.7rem;color:var(--ink-muted);margin-top:2px">Cada 15 ó 30 días desde la fecha inicial</div>
+            </div>
+          </label>
+          <label class="radio-card" id="rcPanama" onclick="UI.selectDateMode('panama')">
+            <input type="radio" name="fDateMode" value="panama" style="display:none"/>
+            <div>
+              <div style="font-weight:600;font-size:.8rem">Días 15 y 30 🇵🇦</div>
+              <div style="font-size:.7rem;color:var(--ink-muted);margin-top:2px">Cobra el 15 y el 30 de cada mes</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div id="projBox" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px">
+        <div style="font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:9px">Proyección de Ganancias</div>
+        <div class="grid grid-cols-4 gap-2 mono">
+          <div style="text-align:center"><div style="font-size:.62rem;color:var(--ink-muted)">Por cuota</div><div id="pjCuota" style="font-weight:700;font-size:.9rem">—</div></div>
+          <div style="text-align:center"><div style="font-size:.62rem;color:var(--ink-muted)">3 meses</div><div id="pj3m" style="font-weight:700;font-size:.9rem;color:var(--gold)">—</div></div>
+          <div style="text-align:center"><div style="font-size:.62rem;color:var(--ink-muted)">6 meses</div><div id="pj6m" style="font-weight:700;font-size:.9rem;color:var(--money)">—</div></div>
+          <div style="text-align:center"><div style="font-size:.62rem;color:var(--ink-muted)">12 meses</div><div id="pj12m" style="font-weight:700;font-size:.9rem">—</div></div>
+        </div>
+      </div>
+      <div><label class="lbl">Nota (opcional)</label><input id="fLoanNote" class="inp" placeholder="Referencia, garantía, etc."/></div>
+      <input type="hidden" id="renewFromId" value=""/>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-ghost" onclick="UI.closeModal('modalNew')" style="flex:1">Cancelar</button>
+        <button id="btnSaveLoan" class="btn btn-primary" style="flex:2" onclick="App.saveLoan()">Guardar Préstamo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DETALLE PRÉSTAMO -->
+<div id="modalDetail" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:680px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:10px">
+      <div id="detailHeader"></div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="icon-btn" title="Exportar PDF de este préstamo" onclick="Reports.loanPDF(App.activeDetail)">📄</button>
+        <button onclick="UI.closeModal('modalDetail')" class="icon-btn">✕</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:3px;background:var(--surface2);border-radius:8px;padding:3px;margin-bottom:16px">
+      <button id="dt1" class="btn btn-sm" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--ink)" onclick="UI.detailTab(1)">Resumen</button>
+      <button id="dt2" class="btn btn-ghost btn-sm" style="flex:1;border:none" onclick="UI.detailTab(2)">Historial</button>
+      <button id="dt3" class="btn btn-ghost btn-sm" style="flex:1;border:none" onclick="UI.detailTab(3)">Editar</button>
+    </div>
+    <div id="dtab1"></div>
+    <div id="dtab2" style="display:none"></div>
+    <div id="dtab3" style="display:none"></div>
+  </div>
+</div>
+
+<!-- MODAL: CLIENTE (todos sus préstamos) -->
+<div id="modalClient" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:600px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div id="clientHeader"></div>
+      <button onclick="UI.closeModal('modalClient')" class="icon-btn">✕</button>
+    </div>
+    <div id="clientEditFields" class="grid grid-cols-1 md:grid-cols-2 gap-3" style="margin-bottom:14px">
+      <div><label class="lbl">Nombre</label><input id="cName" class="inp"/></div>
+      <div><label class="lbl">Teléfono</label><input id="cPhone" class="inp"/></div>
+      <div style="grid-column:1/-1"><label class="lbl">Nota</label><input id="cNote" class="inp"/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button class="btn btn-rust btn-sm" onclick="App.deleteClient()">🗑 Eliminar cliente</button>
+      <button class="btn btn-primary btn-sm" onclick="App.saveClientEdit()">Guardar cambios</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="UI.newLoanForClient()">+ Nuevo préstamo</button>
+    </div>
+    <div style="font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:8px">Préstamos de este cliente</div>
+    <div id="clientLoansBody" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- MODAL: PAGO DE INTERÉS -->
+<div id="modalPay" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:380px">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Registrar Cuota de Interés</div>
+    <div id="payInfo" style="font-size:.84rem;color:var(--ink-muted);margin-bottom:18px"></div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:18px;text-align:center">
+      <div style="font-size:.7rem;color:var(--ink-muted);margin-bottom:6px">Monto de esta cuota</div>
+      <div id="payAmount" class="mono" style="font-size:1.9rem;font-weight:700;color:var(--money)"></div>
+      <div id="payDate" style="font-size:.74rem;color:var(--ink-muted);margin-top:4px"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="UI.closeModal('modalPay')" style="flex:1">Cancelar</button>
+      <button class="btn btn-money" style="flex:2" onclick="App.confirmPay()">✓ Confirmar Pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ABONO A CAPITAL -->
+<div id="modalCapital" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:380px">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:6px">Abono a Capital</div>
+    <div id="capInfo" style="font-size:.84rem;color:var(--ink-muted);margin-bottom:14px"></div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;text-align:center">
+      <div style="font-size:.7rem;color:var(--ink-muted);margin-bottom:4px">Capital pendiente actual</div>
+      <div id="capOutstandingVal" class="mono" style="font-size:1.6rem;font-weight:700;color:var(--gold)"></div>
+    </div>
+    <label class="lbl">Monto del abono ($)</label>
+    <input id="capAmountInput" type="number" class="inp mono" style="margin-bottom:6px" placeholder="0.00"/>
+    <div style="font-size:.72rem;color:var(--ink-muted);margin-bottom:16px">Si abonas el total, el préstamo se cierra automáticamente.</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="UI.closeModal('modalCapital')" style="flex:1">Cancelar</button>
+      <button class="btn btn-gold" style="flex:2" onclick="App.confirmCapital()">Registrar Abono</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR / ELIMINAR PAGO -->
+<div id="modalEditPay" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:360px">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:16px">Corregir Pago</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div><label class="lbl">Monto ($)</label><input id="epAmount" type="number" class="inp mono"/></div>
+      <div><label class="lbl">Fecha de pago</label><input id="epDate" type="date" class="inp mono"/></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-rust btn-sm" onclick="App.deletePayment()">🗑 Eliminar</button>
+      <button class="btn btn-ghost btn-sm" onclick="UI.closeModal('modalEditPay')">Cancelar</button>
+      <button class="btn btn-primary btn-sm" style="flex:1" onclick="App.saveEditPayment()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CALCULADORA RÁPIDA -->
+<div id="modalCalc" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:400px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-weight:700;font-size:1rem">🧮 Calculadora Rápida</div>
+      <button onclick="UI.closeModal('modalCalc')" class="icon-btn">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="lbl">Monto ($)</label><input id="cAmount" type="number" class="inp mono" placeholder="500" oninput="UI.calcPreview()"/></div>
+        <div><label class="lbl">Interés %</label><input id="cRate" type="number" class="inp mono" placeholder="15" oninput="UI.calcPreview()"/></div>
+      </div>
+      <div>
+        <label class="lbl">Frecuencia</label>
+        <select id="cFreq" class="inp" onchange="UI.calcPreview()">
+          <option value="quincenal">Quincenal</option>
+          <option value="mensual">Mensual</option>
+        </select>
+      </div>
+      <div id="calcResult" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px" class="mono">
+        <div class="grid grid-cols-2 gap-2" style="margin-bottom:10px">
+          <div style="text-align:center"><div style="font-size:.66rem;color:var(--ink-muted);margin-bottom:3px">Por cuota</div><div id="cResCuota" style="font-size:1.2rem;font-weight:700">—</div></div>
+          <div style="text-align:center"><div style="font-size:.66rem;color:var(--ink-muted);margin-bottom:3px">Mensual</div><div id="cResMes" style="font-size:1.2rem;font-weight:700;color:var(--money)">—</div></div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:9px" class="grid grid-cols-3 gap-2" style="text-align:center">
+          <div><div style="font-size:.62rem;color:var(--ink-muted)">3 meses</div><div id="cRes3m" style="font-size:.88rem;font-weight:700;color:var(--gold)">—</div></div>
+          <div><div style="font-size:.62rem;color:var(--ink-muted)">6 meses</div><div id="cRes6m" style="font-size:.88rem;font-weight:700">—</div></div>
+          <div><div style="font-size:.62rem;color:var(--ink-muted)">12 meses</div><div id="cRes12m" style="font-size:.88rem;font-weight:700">—</div></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2" style="margin-top:2px">
+        <button class="btn btn-ghost" onclick="UI.closeModal('modalCalc')">Cerrar</button>
+        <button class="btn btn-primary" onclick="UI.calcToNew()">Usar en préstamo →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MOROSIDAD -->
+<div id="modalMora" class="modal-bg" style="display:none">
+  <div class="modal fi" style="max-width:640px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-weight:700;font-size:1.05rem">⚠️ Reporte de Morosidad</div>
+      <div style="display:flex;gap:6px">
+        <button class="icon-btn" title="Exportar PDF" onclick="Reports.moraPDF()">📄</button>
+        <button onclick="UI.closeModal('modalMora')" class="icon-btn">✕</button>
+      </div>
+    </div>
+    <div id="moraTotal" class="mono" style="font-size:.85rem;color:var(--ink-muted);margin-bottom:16px"></div>
+    <div id="moraBody" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<div id="toastRoot"></div>
+
+<script src="logic.js"></script>
+<script src="supabase-client.js"></script>
+<script src="reports.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
