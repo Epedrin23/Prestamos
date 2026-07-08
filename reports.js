@@ -87,7 +87,7 @@ const Reports = {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const W = doc.internal.pageSize.getWidth();
-    const active = DB.cache.loans.filter(l => !l.isClosed);
+    const active = App.scopedLoans().filter(l => !l.isClosed);
     const totalCapital = active.reduce((s, l) => s + loanOutstanding(l, DB.cache.payments), 0);
     const totalInterest = active.reduce((s, l) => {
       const c = loanCuota(l, DB.cache.payments);
@@ -105,7 +105,7 @@ const Reports = {
     doc.text('Clientes', 14, 42); doc.text('Préstamos activos', 65, 42);
     doc.text('Capital en calle', 122, 42); doc.text('Interés mensual', 172, 42);
     doc.setFont(undefined, 'bold'); doc.setTextColor(20, 20, 20); doc.setFontSize(11);
-    doc.text(String(DB.cache.clients.length), 14, 49);
+    doc.text(String(App.scopedClients().length), 14, 49);
     doc.text(String(active.length), 65, 49);
     doc.text(money(totalCapital), 122, 49);
     doc.text(money(totalInterest), 172, 49);
@@ -137,7 +137,7 @@ const Reports = {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const W = doc.internal.pageSize.getWidth();
-    const overdue = DB.cache.loans.filter(l => !l.isClosed && loanStatus(l, DB.cache.payments) === 'overdue')
+    const overdue = App.scopedLoans().filter(l => !l.isClosed && loanStatus(l, DB.cache.payments) === 'overdue')
       .map(l => ({ loan: l, client: DB.getClient(l.clientId), due: nextDueDate(l, DB.cache.payments) }))
       .filter(x => x.client)
       .sort((a, b) => daysDiff(a.due) - daysDiff(b.due));
@@ -172,11 +172,11 @@ const Reports = {
   },
 
   portfolioExcel() {
-    const clientsSheet = DB.cache.clients.map(c => ({
+    const clientsSheet = App.scopedClients().map(c => ({
       Nombre: c.name, Teléfono: c.phone, Nota: c.note,
       'Creado por': c.createdBy, 'Creado el': (c.createdAt || '').slice(0, 10)
     }));
-    const loansSheet = DB.cache.loans.map(l => {
+    const loansSheet = App.scopedLoans().map(l => {
       const client = DB.getClient(l.clientId);
       const status = loanStatus(l, DB.cache.payments);
       const due = l.isClosed ? '' : (nextDueDate(l, DB.cache.payments) || '');
@@ -190,7 +190,7 @@ const Reports = {
         Nota: l.note, 'Creado por': l.createdBy, 'Creado el': (l.createdAt || '').slice(0, 10)
       };
     });
-    const paymentsSheet = DB.cache.payments.map(p => {
+    const paymentsSheet = App.scopedPayments().map(p => {
       const loan = DB.getLoan(p.loanId);
       const client = loan ? DB.getClient(loan.clientId) : null;
       return {
